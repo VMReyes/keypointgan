@@ -2,6 +2,7 @@ import os, sys
 import mat73
 import argparse
 import skimage.io
+from skimage.transform import resize
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -62,12 +63,14 @@ if __name__ == '__main__':
         frame_by_frame_video_folders = next(os.walk(videos_folder))[1]
         frame_by_frame_video_folders.sort()
 
-        # Expecting a "SegmentsMat" folder in every actor's folder
-        # Expecting a "ground_truth_bb" folder in every "SegmentsMat" folder
-        bounding_box_folder = os.path.join(args.root_dir, subject, "MySegmentsMat", "ground_truth_bb")
-        background_segmentation_folder = os.path.join(args.root_dir, subject, "MySegmentsMat", "ground_truth_bs")
         for video in frame_by_frame_video_folders:
             print(f'Processing video: {video}')
+
+            # Expecting a "SegmentsMat" folder in every actor's folder
+            # Expecting a "ground_truth_bb" folder in every "SegmentsMat" folder
+            bounding_box_folder = os.path.join(args.root_dir, subject, "MySegmentsMat", "ground_truth_bb")
+            background_segmentation_folder = os.path.join(args.root_dir, subject, "MySegmentsMat", "ground_truth_bs")
+
             # Retrieve the bounding box matrices from the dataset
             bounding_box_mat = mat73.loadmat(os.path.join(bounding_box_folder, video+".mat"))
             bounding_boxes_list = bounding_box_mat['Masks']
@@ -75,6 +78,13 @@ if __name__ == '__main__':
             # Retrieve the background mask matrices from the dataset
             background_segmentation_mat = mat73.loadmat(os.path.join(background_segmentation_folder, video+".mat"))
             background_segmentations = background_segmentation_mat['Masks']
+
+            # Create the folder where we'll save our frames
+            with_background_folder_path = os.path.join(args.root_dir, subject, "withBackground", video)
+            without_background_folder_path = os.path.join(args.root_dir, subject, "withoutBackground", video)
+            print(f'Making folder {with_background_folder_path}')
+            os.makedirs(with_background_folder_path, exist_ok=True)
+            os.makedirs(without_background_folder_path, exist_ok=True)
 
             video_frames_folder = os.path.join(videos_folder, video)
             frame_filenames = next(os.walk(video_frames_folder))[2]
@@ -92,20 +102,16 @@ if __name__ == '__main__':
 
                 # Remove the background
                 frame_without_background = frame_data * background_segmentations[i][:,:, np.newaxis]
-                plt.imshow(frame_without_background)
-                plt.savefig("frame_without_background_test.png")
 
                 # Crop the frame with the background removed and the frame with the background
                 # according to the square bounding box
                 cropped_without_background = frame_without_background[square_top_left[0]:square_bottom_right[0], square_top_left[1]:square_bottom_right[1]]
                 cropped_with_background = frame_data[square_top_left[0]:square_bottom_right[0], square_top_left[1]:square_bottom_right[1]]
 
+                # Downscale to 128x128
+                small_without_background = resize(cropped_without_background, (128, 128))
+                small_with_background = resize(cropped_with_background, (128, 128))
+
                 # Save both frames to their respective folders IE: S1/withBackground/video.id/frame.png
-                with_background_folder_path = os.path.join(args.root_dir, subject, "withBackground", video)
-                without_background_folder_path = os.path.join(args.root_dir, subject, "withoutBackground", video)
-                os.makedirs(with_background_folder_path, exist_ok=True)
-                os.makedirs(without_background_folder_path, exist_ok=True)
-                skimage.io.imsave(os.path.join(with_background_folder_path, frame_filename), cropped_with_background)
-                skimage.io.imsave(os.path.join(without_background_folder_path, frame_filename), cropped_without_background)
-                break
-            break
+                skimage.io.imsave(os.path.join(with_background_folder_path, frame_filename), small_with_background)
+                skimage.io.imsave(os.path.join(without_background_folder_path, frame_filename), small_without_background)
