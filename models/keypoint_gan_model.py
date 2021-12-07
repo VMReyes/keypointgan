@@ -18,6 +18,7 @@ from util.tps_sampler import TPSRandomSampler
 from . import networks, utils
 from .base_model import BaseModel
 from .perceptual_loss import PerceptualLoss
+import lpips
 
 
 class KeypointGANModel(BaseModel):
@@ -149,6 +150,9 @@ class KeypointGANModel(BaseModel):
                 self.criterionCycle = torch.nn.L1Loss()
             elif self.opt.cycle_loss == 'perceptual':
                 self.criterionCycle = PerceptualLoss(self.opt.perceptual_net)
+            elif self.opt.cycle_loss == 'lpips':
+                self.criterionCycle = lpips.LPIPS(net='vgg')
+                self.criterionCycle.cuda()
                     # '/scratch/local/hdd/ankush/minmaxinfo/data/models/imagenet-vgg-verydeep-19.mat'
             else:
                 raise ValueError('Unknown cycle loss: %s' % self.opt.cycle_loss)
@@ -318,7 +322,13 @@ class KeypointGANModel(BaseModel):
         self.loss_G_A = self.criterionGAN(self.netD_A(fake_B), True) * lambda_gan_A
 
         # Forward cycle loss
-        self.loss_cycle_A = self.criterionCycle(self.rec_A, self.real_A) * lambda_A
+        
+        if self.opt.cycle_loss == "lpips":
+            p_loss = self.criterionCycle(self.rec_A, self.real_A).sum()
+        else:
+            p_loss = self.criterionCycle(self.rec_A, self.real_A)
+
+        self.loss_cycle_A =  p_loss * lambda_A
 
         self.loss_render_consistency = 0
         if self.opt.lambda_render_consistency > 0:
