@@ -1,10 +1,10 @@
 #!/bin/bash
 
-VIDEOS_PATH="/data/vision/torralba/scratch/vmreyes/keypointgan/datasets/simple_human36m/human_images/S1/Videos/"
-VIDEOS="/data/vision/torralba/scratch/vmreyes/keypointgan/datasets/simple_human36m/human_images/S1/Videos/*"
+VIDEOS_PATH="/data/vision/torralba/scratch/vmreyes/keypointgan/datasets/simple_human36m/human_images/S5/Videos/"
+VIDEOS="/data/vision/torralba/scratch/vmreyes/keypointgan/datasets/simple_human36m/human_images/S5/Videos/*"
 detox -r $VIDEOS
 rm $VIDEOS_PATH/*ALL*
-VIDEO_OUT="/data/vision/torralba/scratch/vmreyes/keypointgan/datasets/simple_human36m/human_images/S1/Videos/"
+VIDEO_OUT="/data/vision/torralba/scratch/vmreyes/keypointgan/datasets/simple_human36m/human_images/S5/Videos/"
 
 for f in $VIDEOS
 do
