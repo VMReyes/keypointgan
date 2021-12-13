@@ -1,7 +1,6 @@
 import os.path
 from data.base_dataset import BaseDataset
 from data.image_folder import make_dataset
-from data.unaligned_dataset import UnalignedDataset
 import human36m_skeleton
 from PIL import Image
 import torchvision.transforms as transforms
@@ -103,8 +102,14 @@ class SimpleHuman36mDatasetSingle(object):
 
     def get_item(self, index):
         ordered_stream = self.get_ordered_stream()
-        sequence, frame = ordered_stream[index]
-        return self.get_pair(sequence, frame, frame)
+        sequence, frame1 = ordered_stream[index]
+        offset = self.sample_window[0]
+        try:
+            _, frame2 = ordered_stream[index + offset]
+            pair = self.get_pair(sequence, frame1, frame2)
+        except:
+            pair = self.get_pair(sequence, frame1, frame1)
+        return pair
 
 
     def sample_item(self):
@@ -146,7 +151,7 @@ class SimpleHuman36mDataset(BaseDataset):
         activities = ['directions', 'discussion', 'greeting', 'posing',
                       'waiting', 'walking']
         train_actors = ['S%d' % i for i in [1, 5, 6, 7, 8, 9]]
-        val_actors = ['S%d' % i for i in [11]]
+        val_actors = ['S%d' % i for i in [1, 5, 6, 7, 8, 9]]
         test_actors = val_actors
 
         if opt.subset == 'train':
@@ -201,6 +206,8 @@ class SimpleHuman36mDataset(BaseDataset):
     def _get_sample(self, dataset, index, load_image=True):
         if self.ordered_stream:
             source, target = dataset.get_item(index)
+            if self.opt.shuffle_identities:
+                source, _ = dataset.get_item(-1 * index)
         else:
             source, target = dataset.sample_item()
         landmarks = utils.swap_xy_points(source['landmarks'])
