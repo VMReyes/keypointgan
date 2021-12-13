@@ -59,13 +59,25 @@ class CustomDatasetDataLoader(BaseDataLoader):
     def initialize(self, opt):
         BaseDataLoader.initialize(self, opt)
         self.dataset = create_dataset(opt)
-        self.dataloader = torch.utils.data.DataLoader(
-            self.dataset,
-            batch_size=opt.batch_size,
-            shuffle=opt.shuffle,
-            num_workers=int(opt.num_threads),
-            pin_memory=True,
-            worker_init_fn=worker_init_fn)
+        if opt.phase == "test":
+            sampler = torch.utils.data.SequentialSampler(self.dataset)
+            self.dataloader = torch.utils.data.DataLoader(
+                self.dataset,
+                batch_size=opt.batch_size,
+                num_workers=int(opt.num_threads),
+                sampler=sampler,
+                pin_memory=True,
+                worker_init_fn=worker_init_fn)
+        else:
+            sampler = torch.utils.data.RandomSampler(self.dataset)
+            self.dataloader = torch.utils.data.DataLoader(
+                self.dataset,
+                batch_size=opt.batch_size,
+                shuffle=opt.shuffle,
+                num_workers=int(opt.num_threads),
+                sampler=sampler,
+                pin_memory=True,
+                worker_init_fn=worker_init_fn)
 
     def load_data(self):
         return self
