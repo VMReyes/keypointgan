@@ -1,12 +1,12 @@
 # paths
-results_dir: ./results/video_pose_human36m_appearance
+results_dir: ./results/video_pose_video_appearance
 video_dir: ./datasets/movie_clips/seinfeld-festivus
 dataset_mode: moviesandhumans
 
 phase: test
 
 pose_source: "video"
-appearance_source: "simplehuman36m"
+appearance_source: "video"
 shuffle_identities: False
 shuffle: False 
 no_flip: True
