@@ -35,6 +35,7 @@ class MoviesAndHumansDataset(BaseDataset):
     def initialize(self, opt):
         self.opt = opt
         self.load_images = True
+        self.sample_window = opt.sample_window
         human36m_dataset = find_dataset_using_name("simplehuman36m")
         human36m_dataset_instance = human36m_dataset()
         human36m_dataset_instance.initialize(opt)
@@ -51,6 +52,23 @@ class MoviesAndHumansDataset(BaseDataset):
         if self.opt.appearance_source == "video" and self.opt.pose_source == "simplehuman36m":
             simplehuman36_data['cond_A'] = transformed_video_frame 
             simplehuman36_data['cond_A_path'] = video_frame_path
+        elif self.opt.appearance_source == "simplehuman36m" and self.opt.pose_source == "video":
+            simplehuman36_data['A'] = transformed_video_frame
+            simplehuman36_data['A_paths'] = video_frame_path 
+        elif self.opt.appearance_source == "video" and self.opt.pose_source == "video":
+            simplehuman36_data['A'] = transformed_video_frame
+            simplehuman36_data['A_paths'] = video_frame_path 
+            try:
+                # get second frame and put it in
+                offset = self.opt.sample_window[0]
+                second_video_frame, second_video_frame_path = self.video_dataset.__getitem__(index+offset)
+                second_transformed_video_frame = self.A_transforms(second_video_frame)
+                simplehuman36_data['cond_A'] = second_transformed_video_frame
+                simplehuman36_data['cond_A_path'] = second_video_frame_path
+            except:
+                # repeat the frame we got above
+                simplehuman36_data['cond_A'] = transformed_video_frame 
+                simplehuman36_data['cond_A_path'] = video_frame_path 
         else:
             assert False
         return simplehuman36_data
