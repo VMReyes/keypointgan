@@ -1,4 +1,6 @@
 import os
+
+from torch.functional import norm
 from options.test_options import TestOptions
 from data import CreateDataLoader
 from models import create_model
@@ -11,10 +13,14 @@ from data import human36m_skeleton
 import math
 import itertools
 import torch
+import torchvision
 from collections import defaultdict
 import numpy as np
 import time
 import re
+import matplotlib.pyplot as plt
+import lpips
+#from skimage.measure import compares_ssim as ssim
 
 
 if __name__ == '__main__':
@@ -38,6 +44,9 @@ if __name__ == '__main__':
 
     if opt.eval:
         model.eval()
+
+    lpips_net = lpips.LPIPS(net='alex')
+    lpips_net.cuda()
 
     ############################################################################
     def format_results_per_activity(results):
@@ -92,6 +101,13 @@ if __name__ == '__main__':
             means[activity] = np.mean(values)
         return means
 
+    def compute_reconstruction_loss(prediction, target):
+        # normalize predicted image to -1, 1
+        normalized_prediction = (prediction - prediction.min())/(prediction.max() - prediction.min())
+        normalized_prediction = 2*normalized_prediction - 1
+        lpips_loss = lpips_net(normalized_prediction, target)
+        #ssim_loss = ssim(normalized_prediction, target, channel_axis = 1, data_range = target.max() - target.min())
+        return lpips_loss
 
     def compute_mean_distance(input, target, correspondeces=None, 
                               target_correspondeces=None, used_points=None,
@@ -164,6 +180,7 @@ if __name__ == '__main__':
     distances_min = []
     correct_flips = []
     paths = []
+    lpips_losses = []
 
     if opt.paired_skeleton_type in ['human36m', 'human36m_simple2']:
         target_correspondeces = human36m_skeleton.get_lr_correspondences()
@@ -228,11 +245,15 @@ if __name__ == '__main__':
             prediction, target, correspondeces=correspondeces,
             target_correspondeces=target_correspondeces,
             used_points=used_points, offline_prediction=offline_prediction)
+        
+        # compute reconstruction loss
+        lpips_loss = compute_reconstruction_loss(model.rec_A, model.real_A)
 
         # log results
         distances.extend(dist.cpu().numpy())
         distances_min.extend(dist_min.cpu().numpy())
         correct_flips.extend(correct_flip.cpu().numpy())
+        lpips_losses.extend(lpips_loss.detach().cpu().numpy())
         paths.extend(data['A_paths'])
 
         t = (time.time() - iter_start_time)
@@ -253,13 +274,17 @@ if __name__ == '__main__':
             mean_min_distance = np.mean(mean_min_distances.values())
             mean_correct_flips = mean_per_activity(correct_flips, paths, path_fn)
             mean_correct_flip = np.mean(mean_correct_flips.values())
+            mean_lpips_losses = mean_per_activity(lpips_losses, paths, path_fn)
+            mean_lpips_loss = np.mean(mean_lpips_losses.values())
 
             results_str = 'mean distance %.4f\n' % mean_distance
             results_str += 'mean min distance %.4f\n' % mean_min_distance
             results_str += 'mean correct flips %.4f\n' % mean_correct_flip
+            results_str += 'mean lpips loss %.4f\n' % mean_lpips_loss
             results_str += '%s\n' % format_results_per_activity(mean_distances)
             results_str += '%s\n' % format_results_per_activity(mean_min_distances)
             results_str += '%s\n' % format_results_per_activity(mean_correct_flips)
+            results_str += '%s\n' % format_results_per_activity(mean_lpips_losses)
             print(results_str)
 
         if i % save_frq == 0:
@@ -284,29 +309,33 @@ if __name__ == '__main__':
     mean_min_distance = np.mean(mean_min_distances.values())
     mean_correct_flips = mean_per_activity(correct_flips, paths, path_fn)
     mean_correct_flip = np.mean(mean_correct_flips.values())
+    mean_lpips_losses = mean_per_activity(lpips_losses, paths, path_fn)
+    mean_lpips_loss = np.mean(mean_lpips_losses.values())
 
     results_str = 'mean distance %.4f\n' % mean_distance
     results_str += 'mean min distance %.4f\n' % mean_min_distance
     results_str += 'mean correct flips %.4f\n' % mean_correct_flip
+    results_str += 'mean lpips loss %.4f\n' % mean_lpips_loss
     results_str += '%s\n' % format_results_per_activity(mean_distances)
     results_str += '%s\n' % format_results_per_activity(mean_min_distances)
     results_str += '%s\n' % format_results_per_activity(mean_min_distances)
     results_str += '%s\n' % format_results_per_activity(mean_correct_flips)
+    results_str += '%s\n' % format_results_per_activity(mean_lpips_losses)
 
     print(results_str)
     webpage.add_text(results_str)
 
-    results_str = format_results_per_activity2(mean_distances)
-    print(results_str[0])
-    webpage.add_text(results_str[0])
-    print(results_str[1])
-    webpage.add_text(results_str[1])
+    #results_str = format_results_per_activity2(mean_distances)
+    #print(results_str[0])
+    #webpage.add_text(results_str[0])
+    #print(results_str[1])
+    #webpage.add_text(results_str[1])
 
-    results_str = format_results_per_activity2(mean_min_distances)
-    print(results_str[0])
-    webpage.add_text(results_str[0])
-    print(results_str[1])
-    webpage.add_text(results_str[1])
+    #results_str = format_results_per_activity2(mean_min_distances)
+    #print(results_str[0])
+    #webpage.add_text(results_str[0])
+    #print(results_str[1])
+    #webpage.add_text(results_str[1])
 
     # save the website
     webpage.save()
