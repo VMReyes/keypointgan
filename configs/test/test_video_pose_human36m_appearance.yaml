@@ -1,6 +1,6 @@
 # paths
-results_dir: ./results/video_pose_human36m_appearance
-video_dir: ./datasets/movie_clips/seinfeld-festivus
+results_dir: ./results/video_pose_human36m_appearance-nike_running
+video_dir: ./datasets/movie_clips/running-nike
 dataset_mode: moviesandhumans
 
 phase: test
