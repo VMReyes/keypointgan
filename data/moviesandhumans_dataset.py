@@ -3,6 +3,7 @@ from data import find_dataset_using_name
 from data.base_dataset import BaseDataset, get_transform
 from image_folder import ImageFolder
 import torchvision.transforms as transforms
+import random
 
 def get_transform(opt, channels=3):
     mean = 0.5
@@ -31,6 +32,8 @@ class MoviesAndHumansDataset(BaseDataset):
         parser.add_argument('--video_dir', help='Path to folder with video frames.')
         parser.add_argument('--pose_source', required = True, help='The source of real_A (pose) images.')
         parser.add_argument('--appearance_source', required = True, help='The source of cond_A (appearance) images.')
+        parser.add_argument('--skeleton_subset_size', type=int, default=0, help='')
+        parser.add_argument('--skeleton_subset_seed', type=int, default=None, help='')
         return parser
     def initialize(self, opt):
         self.opt = opt
@@ -46,7 +49,8 @@ class MoviesAndHumansDataset(BaseDataset):
         self.A_transforms = get_transform(opt)
 
     def __getitem__(self, index):
-        video_frame, video_frame_path = self.video_dataset.__getitem__(index)
+        video_index = index % self.video_dataset.__len__()
+        video_frame, video_frame_path = self.video_dataset.__getitem__(video_index)
         transformed_video_frame = self.A_transforms(video_frame)
         simplehuman36_data = self.human36m_dataset.__getitem__(index)
         if self.opt.appearance_source == "video" and self.opt.pose_source == "simplehuman36m":
@@ -61,6 +65,10 @@ class MoviesAndHumansDataset(BaseDataset):
             try:
                 # get second frame and put it in
                 offset = self.opt.sample_window[0]
+                if self.opt.phase == "train":
+                    window_range = self.opt.sample_window[1]
+                    random_offset = random.randint(0, window_range)
+                    offset += random_offset
                 second_video_frame, second_video_frame_path = self.video_dataset.__getitem__(index+offset)
                 second_transformed_video_frame = self.A_transforms(second_video_frame)
                 simplehuman36_data['cond_A'] = second_transformed_video_frame
@@ -73,6 +81,11 @@ class MoviesAndHumansDataset(BaseDataset):
             assert False
         return simplehuman36_data
     def __len__(self):
-        return min(self.human36m_dataset.__len__(), self.video_dataset.__len__())
+        if self.opt.pose_source == "video":
+            return self.video_dataset.__len__()
+        elif self.opt.pose_source == "simplehuman36m":
+            return self.human36m_dataset.__len__()
+        else:
+            assert False
     def name(self):
         return 'MoviesAndHumansDataset'
