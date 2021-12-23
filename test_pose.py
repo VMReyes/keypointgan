@@ -19,6 +19,7 @@ import numpy as np
 import time
 import re
 import matplotlib.pyplot as plt
+plt.switch_backend('agg')
 import lpips
 #from skimage.measure import compares_ssim as ssim
 
