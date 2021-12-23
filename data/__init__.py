@@ -69,13 +69,11 @@ class CustomDatasetDataLoader(BaseDataLoader):
                 pin_memory=True,
                 worker_init_fn=worker_init_fn)
         else:
-            sampler = torch.utils.data.RandomSampler(self.dataset)
             self.dataloader = torch.utils.data.DataLoader(
                 self.dataset,
                 batch_size=opt.batch_size,
                 shuffle=opt.shuffle,
                 num_workers=int(opt.num_threads),
-                sampler=sampler,
                 pin_memory=True,
                 worker_init_fn=worker_init_fn)
 
