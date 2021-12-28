@@ -1,5 +1,5 @@
 # paths
-results_dir: ./results/video_pose_video_appearance_seinfeld_festivus
+results_dir: ./results/video_pose_video_appearance_seinfeld_festivus_offset
 video_dir: ./datasets/movie_clips/seinfeld_festivus
 dataset_mode: moviesandhumans
 
@@ -17,7 +17,7 @@ eval: True
 
 num_threads: 0
 batch_size: 32
-sample_window: [0, 1] # the second parameter is sampling frequency
+sample_window: [1, 15] # the second parameter is sampling frequency
 
 used_points: all
 error_form: image_size
