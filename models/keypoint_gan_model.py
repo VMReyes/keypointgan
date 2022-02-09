@@ -19,6 +19,7 @@ from . import networks, utils
 from .base_model import BaseModel
 from .perceptual_loss import PerceptualLoss
 import lpips
+from torchvision import transforms
 
 
 class KeypointGANModel(BaseModel):
@@ -186,6 +187,13 @@ class KeypointGANModel(BaseModel):
             self.tps_sampler_target = TPSRandomSampler(
                 opt.fineSize, opt.fineSize, rotsd=5.0, scalesd=0.05, transsd=0.05,
                 warpsd=(0.0, 0.0))
+        if self.opt.augment_unpaired_skeleton:
+            self.augment_transforms = transforms.Compose(
+                [transforms.ToPILImage(),
+                 transforms.RandomPerspective(p=.1),
+                 transforms.RandomAffine(30),
+                 transforms.ToTensor(),
+                 transforms.RandomErasing()])
 
 
     def set_input(self, input):
@@ -232,6 +240,20 @@ class KeypointGANModel(BaseModel):
             skeleton_type = self.opt.prior_skeleton_type
         self.real_B = self.render_skeleton(
             self.real_B_points, skeleton_type=skeleton_type, reduce=self.opt.reduce_rendering_mode)
+        self.real_B.requires_grad = False
+        if self.opt.augment_unpaired_skeleton:
+            transformed_real_B = []
+            for unpaired_skeleton in self.real_B:
+                unpaired_skeleton_min_value = unpaired_skeleton.min()
+                unpaired_skeleton_min_removed = unpaired_skeleton - unpaired_skeleton_min_value
+                unpaired_skeleton_min_removed_max_value = unpaired_skeleton_min_removed.max()
+                normalized_unpaired_skeleton = unpaired_skeleton_min_removed / unpaired_skeleton_min_removed_max_value
+                augmented_skeleton = self.augment_transforms(normalized_unpaired_skeleton.cpu())
+                augmented_skeleton *= unpaired_skeleton_min_removed_max_value
+                augmented_skeleton += unpaired_skeleton_min_value
+                transformed_real_B.append(torch.unsqueeze(augmented_skeleton, dim=0))
+            self.real_B = torch.cat(transformed_real_B).cuda()
+            self.real_B.requires_grad = False
 
     def forward(self):
         if self.mode == 'train_regressor':
