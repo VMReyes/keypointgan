@@ -34,6 +34,7 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--lambda_render_consistency', type=float, default=0.0, help='')
         parser.add_argument('--only_visible_points_loss', action='store_true', help='')
         parser.add_argument('--augment_unpaired_skeleton', action='store_true', help='Perform image augmentation to the unpaired skeleton')
+        parser.add_argument('--epochs', type=int, default=25000, help='Number of epochs to train for.')
 
         self.isTrain = True
         return parser

@@ -22,7 +22,8 @@ if __name__ == '__main__':
 
     avg_time = collections.deque(maxlen=100)
 
-    while True:
+    epochs = 0
+    while epochs < opt.epochs:
         iter_start_time = time.time()
         iter_data_time = time.time()
         for i, data in enumerate(dataset):
@@ -65,6 +66,7 @@ if __name__ == '__main__':
                 model.save_networks(iterations)
 
             iter_data_time = time.time()
+        epochs += 1
 
     # FIXME: should be called at the end of an epoch
     # model.update_learning_rate()
