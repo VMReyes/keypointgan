@@ -4,6 +4,7 @@ from data.image_folder import make_dataset
 import human36m_skeleton
 from PIL import Image
 import torchvision.transforms as transforms
+import torchvision.transforms.functional as functional
 import matplotlib.pyplot as plt
 import skimage.io
 import skimage.transform
@@ -12,17 +13,52 @@ import numpy as np
 from data import utils
 import scipy.io
 
+def bounding_box_from_mask(mask):
+    top = float('inf')
+    bottom = 0
+    left = float('inf')
+    right = 0
+    for x in range(len(mask)):
+        for y in range(len(mask[0])):
+            if mask[x, y] == True:
+                top = min(y, top)
+                bottom = max(y, bottom)
+                left = min(x, left)
+                right = max(x, right)
+    bbox_coords = (top, bottom, left, right)
+    return bbox_coords
 
+def tight_bounding_box_to_square(top, bottom, left, right):
+    bbox_height = bottom - top
+    bbox_width = right - left
+    square_length = int(max(bbox_height, bbox_width) * 1.25)
+    square_top = top - int((square_length - bbox_height) / 2.0)
+    square_left = left - int((square_length - bbox_width) / 2.0)
+    return (square_top, square_left, square_length)
 
-def proc_im(image, mask, apply_mask=True):
+def crop_image_to_bounding_box(image, mask):
+    # get bounding box from boolean mask
+    (top, bottom, left, right) = bounding_box_from_mask(mask)
+    # make it a square
+    square_top, square_left, square_length = tight_bounding_box_to_square(top, bottom, left, right)
+    cropped_image = functional.resized_crop(image, square_top, square_left, square_length, square_length, 128)
+    return cropped_image
+
+def proc_im(image, mask, apply_mask=True, crop_to_bounding_box=True):
     # read image
-    image = skimage.io.imread(image)
-    image = skimage.img_as_float(image).astype(np.float32)
-    if not apply_mask:
-        return image
+    image = Image.open(image)
+    #image = skimage.io.imread(image)
+    #image = skimage.img_as_float(image).astype(np.float32)
 
     mask = skimage.io.imread(mask)
     mask = skimage.img_as_float(mask).astype(np.float32)
+    
+    if crop_to_bounding_box:
+        return crop_image_to_bounding_box(image, mask)
+
+    image = np.array(image)
+    if not apply_mask:
+        return image
 
     return image * mask[..., None]
 
@@ -137,6 +173,8 @@ class SimpleHuman36mDataset(BaseDataset):
         parser.add_argument('--no_mask', action='store_true', help='')
         parser.add_argument('--skeleton_subset_size', type=int, default=0, help='')
         parser.add_argument('--skeleton_subset_seed', type=int, default=None, help='')
+        parser.add_argument('--crop_to_bounding_box', action='store_true',
+            help='Crop the pose frame to a square centered around the bounding box')
         return parser
 
     def initialize(self, opt):
@@ -147,6 +185,7 @@ class SimpleHuman36mDataset(BaseDataset):
             self.load_images = opt.load_images
 
         self.use_mask = not self.opt.no_mask
+        self.crop_to_bounding_box = self.opt.crop_to_bounding_box
 
         activities = ['directions', 'discussion', 'greeting', 'posing',
                       'waiting', 'walking']
@@ -217,8 +256,8 @@ class SimpleHuman36mDataset(BaseDataset):
         future_landmarks = future_landmarks.astype('float32')
 
         if load_image:
-            future_image = proc_im(source['image'], source['mask'], apply_mask=self.use_mask)
-            source_image = proc_im(target['image'], target['mask'], apply_mask=self.use_mask)
+            future_image = proc_im(source['image'], source['mask'], apply_mask=self.use_mask, crop_to_bounding_box=self.crop_to_bounding_box)
+            source_image = proc_im(target['image'], target['mask'], apply_mask=self.use_mask, crop_to_bounding_box=False)
         else:
             future_image = None
             source_image = None
